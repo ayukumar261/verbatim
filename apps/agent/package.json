@@ -1,0 +1,7 @@
+{
+  "name": "agent",
+  "private": true,
+  "scripts": {
+    "dev": "poetry run python -u main.py"
+  }
+}
