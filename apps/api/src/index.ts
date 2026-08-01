@@ -4,7 +4,7 @@ import { cors } from "hono/cors"
 import { logger } from "hono/logger"
 
 const port = Number(process.env.PORT ?? 3001)
-const webOrigin = process.env.ORIGIN ?? "http://localhost:3000"
+const origin = process.env.ORIGIN ?? "http://localhost:3000"
 
 const app = new Hono()
 
@@ -13,7 +13,7 @@ app.use("*", logger())
 app.use(
   "*",
   cors({
-    origin: webOrigin,
+    origin: origin,
     credentials: true,
   })
 )
