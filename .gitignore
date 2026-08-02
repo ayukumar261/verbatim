@@ -6,11 +6,8 @@ node_modules
 .pnp.js
 
 # Local env files
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+.env*
+!.env.example
 
 # Testing
 coverage
@@ -26,6 +23,10 @@ coverage
 out/
 build
 dist
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
 
 # Claude
 .claude/
