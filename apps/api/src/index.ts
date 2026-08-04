@@ -3,8 +3,9 @@ import { Hono } from "hono"
 import { cors } from "hono/cors"
 import { logger } from "hono/logger"
 
-const port = Number(process.env.PORT ?? 3001)
-const origin = process.env.ORIGIN ?? "http://localhost:3000"
+import { env } from "./lib/env.js"
+import { connectMongo, disconnectMongo, mongoStatus } from "./services/mongo.js"
+import { connectRedis, disconnectRedis, redisStatus } from "./services/redis.js"
 
 const app = new Hono()
 
@@ -13,7 +14,7 @@ app.use("*", logger())
 app.use(
   "*",
   cors({
-    origin: origin,
+    origin: env.origin,
     credentials: true,
   })
 )
@@ -23,11 +24,25 @@ app.get("/health", (c) =>
     status: "ok",
     uptime: process.uptime(),
     timestamp: new Date().toISOString(),
+    mongo: mongoStatus(),
+    redis: redisStatus(),
   })
 )
 
-serve({ fetch: app.fetch, port }, (info) => {
+await Promise.all([connectMongo(), connectRedis()])
+
+const server = serve({ fetch: app.fetch, port: env.port }, (info) => {
   console.log(`api listening on http://localhost:${info.port}`)
 })
+
+const shutdown = () => {
+  server.close(async () => {
+    await Promise.all([disconnectMongo(), disconnectRedis()])
+    process.exit(0)
+  })
+}
+
+process.on("SIGINT", shutdown)
+process.on("SIGTERM", shutdown)
 
 export default app

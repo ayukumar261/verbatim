@@ -1,7 +1,14 @@
 {
   "$schema": "https://turborepo.dev/schema.json",
   "ui": "tui",
-  "globalEnv": ["PORT", "ORIGIN"],
+  "globalEnv": [
+    "NODE_ENV",
+    "PORT",
+    "ORIGIN",
+    "MONGO_URL",
+    "MONGO_DB",
+    "REDIS_URL"
+  ],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
