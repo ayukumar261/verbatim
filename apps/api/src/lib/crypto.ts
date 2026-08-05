@@ -29,7 +29,7 @@ if (key.length !== KEY_LENGTH) {
  * the auth tag are fixed width, so `decrypt` can slice them back off.
  *
  * The IV is random on every call, which means encrypting the same token twice
- * produces two different ciphertexts. That is deliberate — reusing an IV with
+ * produces two different ciphertexts. That is deliberate: reusing an IV with
  * the same key breaks GCM badly.
  */
 export const encrypt = (plaintext: string): string => {
