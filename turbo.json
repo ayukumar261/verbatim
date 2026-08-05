@@ -7,7 +7,8 @@
     "ORIGIN",
     "MONGO_URL",
     "MONGO_DB",
-    "REDIS_URL"
+    "REDIS_URL",
+    "TOKEN_ENCRYPTION_KEY"
   ],
   "tasks": {
     "build": {
