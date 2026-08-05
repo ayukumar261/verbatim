@@ -1,24 +1,21 @@
 const isProduction = process.env.NODE_ENV === "production"
 
-const withLocalDefault = (name: string, localDefault: string): string => {
+const read = (name: string): string => {
   const value = process.env[name]
 
-  if (value) {
-    return value
-  }
-
-  if (isProduction) {
+  if (!value) {
     throw new Error(`Missing required environment variable: ${name}`)
   }
 
-  return localDefault
+  return value
 }
 
 export const env = {
   isProduction,
-  port: Number(process.env.PORT ?? 3001),
-  origin: withLocalDefault("ORIGIN", "http://localhost:3000"),
-  mongoUrl: withLocalDefault("MONGO_URL", "mongodb://127.0.0.1:27017"),
-  mongoDb: withLocalDefault("MONGO_DB", "verbatim"),
-  redisUrl: withLocalDefault("REDIS_URL", "redis://127.0.0.1:6379"),
+  port: Number(read("PORT")),
+  origin: read("ORIGIN"),
+  mongoUrl: read("MONGO_URL"),
+  mongoDb: read("MONGO_DB"),
+  redisUrl: read("REDIS_URL"),
+  tokenEncryptionKey: read("TOKEN_ENCRYPTION_KEY"),
 } as const
