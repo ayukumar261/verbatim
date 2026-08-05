@@ -1,6 +1,6 @@
 import mongoose from "mongoose"
 
-import { env } from "../lib/env.js"
+import { env } from "../env.js"
 
 mongoose.set("strictQuery", true)
 

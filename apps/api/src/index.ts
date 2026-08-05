@@ -3,9 +3,9 @@ import { Hono } from "hono"
 import { cors } from "hono/cors"
 import { logger } from "hono/logger"
 
-import { env } from "./lib/env.js"
-import { connectMongo, disconnectMongo, mongoStatus } from "./services/mongo.js"
-import { connectRedis, disconnectRedis, redisStatus } from "./services/redis.js"
+import { env } from "./env.js"
+import { connectMongo, disconnectMongo, mongoStatus } from "./db/mongo.js"
+import { connectRedis, disconnectRedis, redisStatus } from "./db/redis.js"
 
 const app = new Hono()
 

@@ -1,7 +1,7 @@
 import { Schema, model } from "mongoose"
 import type { HydratedDocumentFromSchema } from "mongoose"
 
-import { decrypt, encrypt } from "../lib/crypto.js"
+import { decrypt, encrypt } from "../utils/crypto.js"
 
 /**
  * The OAuth providers we know how to talk to. Kept as a list so adding one
@@ -20,7 +20,7 @@ export type Provider = (typeof PROVIDERS)[number]
  * `{ provider, providerId }`, and either follow `userId` to a returning user
  * or create a new one.
  *
- * Tokens are stored encrypted (see `lib/crypto.ts`). The threat this guards
+ * Tokens are stored encrypted (see `utils/crypto.ts`). The threat this guards
  * against is a leaked database dump: a stolen backup full of plaintext tokens
  * is live access to every user's GitHub, whereas ciphertext is inert without
  * `TOKEN_ENCRYPTION_KEY`, which lives in the environment and never in Mongo.
