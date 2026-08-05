@@ -1,33 +1,13 @@
 import { Schema, model } from "mongoose"
 import type { HydratedDocumentFromSchema } from "mongoose"
 
+import { PROVIDERS } from "../types.js"
 import { decrypt, encrypt } from "../utils/crypto.js"
 
 /**
- * The OAuth providers we know how to talk to. Kept as a list so adding one
- * later is a single edit here rather than a schema migration.
- */
-export const PROVIDERS = ["github"] as const
-
-export type Provider = (typeof PROVIDERS)[number]
-
-/**
- * A user's identity and credentials at one OAuth provider: who they are on
- * GitHub, and the token that lets us call GitHub *as* them.
- *
- * This collection owns the provider identity outright; `User` holds no
- * provider ids. A sign-in callback therefore starts here: look up
- * `{ provider, providerId }`, and either follow `userId` to a returning user
- * or create a new one.
- *
- * Tokens are stored encrypted (see `utils/crypto.ts`). The threat this guards
- * against is a leaked database dump: a stolen backup full of plaintext tokens
- * is live access to every user's GitHub, whereas ciphertext is inert without
- * `TOKEN_ENCRYPTION_KEY`, which lives in the environment and never in Mongo.
- *
- * The stored fields are named `encrypted*` so it is obvious at the call site
- * that they are ciphertext. Read and write them through the methods below
- * rather than touching them directly.
+ * A user's identity and credentials at one OAuth provider. Owns the provider
+ * identity outright: a sign-in looks up `{ provider, providerId }` here, then
+ * follows `userId` to the `User`. Tokens are encrypted at rest.
  */
 const accountSchema = new Schema(
   {
@@ -47,15 +27,8 @@ const accountSchema = new Schema(
     },
 
     /**
-     * The user's id *at the provider*: GitHub's numeric id, as a string.
-     *
-     * This is the only place a provider identity is recorded, and it is what
-     * a sign-in callback looks up to decide whether this is a returning user.
-     *
-     * Stored as a string even though GitHub's is numeric, because the next
-     * provider's may not be, and because it is only ever compared, never
-     * arithmetic. Note that Mongoose 9 refuses to build an ObjectId from a
-     * number, so string is also the safer habit generally.
+     * The user's id at the provider, as a string. Stable across renames,
+     * which is why identity keys on this rather than on `username`.
      */
     providerId: {
       type: String,
@@ -65,13 +38,8 @@ const accountSchema = new Schema(
     },
 
     /**
-     * The user's handle at the provider: GitHub's `login`, e.g. `octocat`.
-     *
-     * For display and for building GitHub URLs. Never use it to identify
-     * someone: users can rename, and the name is then free for someone else
-     * to take. That is what `providerId` is for.
-     *
-     * Nullable because not every provider has a concept of a handle.
+     * The provider's handle, e.g. GitHub's `login`. Display only: users can
+     * rename, and the freed name can then be claimed by someone else.
      */
     username: {
       type: String,
@@ -154,14 +122,9 @@ const accountSchema = new Schema(
 )
 
 /**
- * Defence in depth. The ciphertext is useless without the key, but an account
- * document has no business appearing in a response at all, so strip the token
- * fields on the way out.
- *
- * Set here rather than in the options above on purpose: a `transform` declared
- * inline is typed against the very document type Mongoose is still inferring,
- * and the resulting circularity silently collapses every field to `unknown`.
- * Applying it afterwards keeps the inferred types intact.
+ * Strips the token fields from any serialised account. Set here, not inline in
+ * the schema options: an inline `transform` creates a type circularity that
+ * silently collapses every inferred field to `unknown`.
  */
 accountSchema.set("toJSON", {
   transform: (_document: unknown, record: Record<string, unknown>) => {

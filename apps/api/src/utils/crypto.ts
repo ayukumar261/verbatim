@@ -22,15 +22,9 @@ if (key.length !== KEY_LENGTH) {
 }
 
 /**
- * Encrypts a secret for storage in Mongo, so that a leaked database dump does
- * not hand over live GitHub access tokens.
- *
- * The output is `iv || authTag || ciphertext`, base64 encoded. Both the IV and
- * the auth tag are fixed width, so `decrypt` can slice them back off.
- *
- * The IV is random on every call, which means encrypting the same token twice
- * produces two different ciphertexts. That is deliberate: reusing an IV with
- * the same key breaks GCM badly.
+ * Encrypts a secret for storage in Mongo. Output is `iv || authTag ||
+ * ciphertext`, base64 encoded, both prefixes fixed width so `decrypt` can
+ * slice them off. The IV is random per call, as GCM requires.
  */
 export const encrypt = (plaintext: string): string => {
   const iv = randomBytes(IV_LENGTH)

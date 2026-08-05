@@ -2,19 +2,9 @@ import { Schema, model } from "mongoose"
 import type { HydratedDocumentFromSchema } from "mongoose"
 
 /**
- * A person using the application.
- *
- * Deliberately says nothing about *how* they signed in. Provider identities,
- * and the credentials that come with them, live on `Account`: one document
- * per provider, pointing back here. Adding a second provider is therefore a
- * new `Account`, not a change to this schema.
- *
- * The profile fields are a snapshot seeded from whichever provider the user
- * first signed in with, and are the app's own copy: if we ever let someone
- * edit their display name, this is what changes, not the GitHub profile.
- *
- * All of them are optional. A GitHub account is allowed to have no display
- * name and no public email, so requiring either would reject real users.
+ * A person using the application. Says nothing about how they signed in:
+ * provider identities and credentials live on `Account`, one per provider, so
+ * adding a second is a new `Account` rather than a change to this schema.
  */
 const userSchema = new Schema(
   {
@@ -25,10 +15,8 @@ const userSchema = new Schema(
     },
 
     /**
-     * Intentionally *not* unique. Two people can legitimately end up sharing
-     * an address, and more importantly, treating a matching email as proof of
-     * "same person" is the classic way account linking becomes account
-     * takeover. Linking is a decision for the route layer, not an index.
+     * Intentionally *not* unique: treating a matching email as proof of "same
+     * person" is how account linking becomes account takeover.
      */
     email: {
       type: String,

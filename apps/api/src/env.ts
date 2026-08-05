@@ -18,4 +18,9 @@ export const env = {
   mongoDb: read("MONGO_DB"),
   redisUrl: read("REDIS_URL"),
   tokenEncryptionKey: read("TOKEN_ENCRYPTION_KEY"),
+  github: {
+    clientId: read("GITHUB_CLIENT_ID"),
+    clientSecret: read("GITHUB_CLIENT_SECRET"),
+    callbackUrl: read("GITHUB_CALLBACK_URL"),
+  },
 } as const

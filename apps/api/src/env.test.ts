@@ -8,6 +8,9 @@ const VALID = {
   MONGO_DB: "verbatim",
   REDIS_URL: "redis://127.0.0.1:6379",
   TOKEN_ENCRYPTION_KEY: "not-a-real-key",
+  GITHUB_CLIENT_ID: "client-id",
+  GITHUB_CLIENT_SECRET: "client-secret",
+  GITHUB_CALLBACK_URL: "http://localhost:3001/auth/github/callback",
 }
 
 const NAMES = Object.keys(VALID)
@@ -60,6 +63,16 @@ describe("env", () => {
     assert.equal(env.mongoDb, "verbatim")
     assert.equal(env.redisUrl, "redis://127.0.0.1:6379")
     assert.equal(env.tokenEncryptionKey, "not-a-real-key")
+  })
+
+  it("groups the GitHub OAuth settings together", async () => {
+    const env = await load()
+
+    assert.deepEqual(env.github, {
+      clientId: "client-id",
+      clientSecret: "client-secret",
+      callbackUrl: "http://localhost:3001/auth/github/callback",
+    })
   })
 
   it("exposes PORT as a number, not a string", async () => {
