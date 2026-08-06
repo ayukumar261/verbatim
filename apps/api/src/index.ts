@@ -5,7 +5,14 @@ import { logger } from "hono/logger"
 
 import { env } from "./env.js"
 import { connectMongo, disconnectMongo, mongoStatus } from "./db/mongo.js"
-import { connectRedis, disconnectRedis, redisStatus } from "./db/redis.js"
+import {
+  connectRedis,
+  disconnectRedis,
+  redis,
+  redisStatus,
+} from "./db/redis.js"
+import { createAuthRoutes } from "./routes/auth.js"
+import { createSessionStore } from "./services/session.js"
 
 const app = new Hono()
 
@@ -28,6 +35,13 @@ app.get("/health", (c) =>
     redis: redisStatus(),
   })
 )
+
+// Built once and shared: `requireAuth` will want this same store. Holding the
+// client is all it does, and `lazyConnect` means the connection below is what
+// opens it, so building it before connecting is fine.
+const sessions = createSessionStore(redis)
+
+app.route("/auth", createAuthRoutes(sessions))
 
 await Promise.all([connectMongo(), connectRedis()])
 
