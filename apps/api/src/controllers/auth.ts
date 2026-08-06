@@ -6,6 +6,9 @@ import {
   fetchViewer,
 } from "../clients/github.js"
 import { env } from "../env.js"
+import type { AuthEnv } from "../middleware/auth.js"
+import { Account } from "../models/account.js"
+import { User } from "../models/user.js"
 import { signInWithProvider } from "../services/auth.js"
 import type { SessionStore } from "../services/session.js"
 import {
@@ -78,5 +81,28 @@ export const createAuthController = (sessions: SessionStore) => {
     return c.redirect(landing())
   }
 
-  return { authorize, callback }
+  /**
+   * Who the session cookie belongs to. Runs behind `requireAuth`, so reaching
+   * this means the caller is signed in and `userId` is already resolved.
+   */
+  const me = async (c: Context<AuthEnv>) => {
+    const userId = c.get("userId")
+
+    const [user, account] = await Promise.all([
+      User.findById(userId),
+      Account.findOne({ userId }),
+    ])
+
+    // A live session pointing at a deleted user. Nobody left to describe, so
+    // it is the same answer as never having signed in.
+    if (user === null) {
+      return c.json({ error: "unauthorized" }, 401)
+    }
+
+    // Serialising the account runs its `toJSON`, which drops the encrypted
+    // tokens. `null` only if the user somehow has no provider account.
+    return c.json({ user: user.toJSON(), account: account?.toJSON() ?? null })
+  }
+
+  return { authorize, callback, me }
 }

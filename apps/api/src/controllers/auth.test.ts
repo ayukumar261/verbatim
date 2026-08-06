@@ -4,6 +4,7 @@ import { after, afterEach, before, beforeEach, describe, it } from "node:test"
 
 import type { Hono as HonoApp } from "hono"
 
+import type { AuthEnv } from "../middleware/auth.js"
 import type { SessionStore } from "../services/session.js"
 import type { TestMongo, TestRedis } from "../test/containers.js"
 
@@ -84,7 +85,7 @@ describe("auth controller", () => {
   let mongo: TestMongo
   let container: TestRedis
   let sessions: SessionStore
-  let app: HonoApp
+  let app: HonoApp<AuthEnv>
 
   before(async () => {
     ;[mongo, container] = await Promise.all([
@@ -93,7 +94,7 @@ describe("auth controller", () => {
     ])
 
     sessions = createSessionStore(container.redis)
-    app = new Hono()
+    app = new Hono<AuthEnv>()
     app.route("/auth", createAuthRoutes(sessions))
 
     await Promise.all([Account.init(), User.init(), Session.init()])
@@ -121,6 +122,19 @@ describe("auth controller", () => {
       state: location.searchParams.get("state")!,
       cookie: `verbatim_oauth_state=${cookieValue(response, "verbatim_oauth_state")}`,
     }
+  }
+
+  /** Runs a whole sign-in, returning the session cookie it plants. */
+  const signIn = async () => {
+    stubGitHub()
+
+    const { state, cookie } = await start()
+    const response = await app.request(
+      `/auth/github/callback?code=abc&state=${state}`,
+      { headers: { cookie } }
+    )
+
+    return `verbatim_session=${cookieValue(response, "verbatim_session")}`
   }
 
   describe("GET /auth/github", () => {
@@ -351,6 +365,88 @@ describe("auth controller", () => {
         `${ORIGIN}/?error=provider_error`
       )
       assert.equal(await User.countDocuments(), 0)
+    })
+  })
+
+  describe("GET /auth/me", () => {
+    it("describes the user the cookie belongs to", async () => {
+      const cookie = await signIn()
+      const response = await app.request("/auth/me", { headers: { cookie } })
+
+      assert.equal(response.status, 200)
+
+      const body = (await response.json()) as {
+        user: { _id: string; name: string; email: string }
+      }
+      const user = await User.findOne({})
+
+      assert.equal(body.user._id, user?._id.toString())
+      assert.equal(body.user.name, "The Octocat")
+      assert.equal(body.user.email, "octocat@github.com")
+    })
+
+    it("names the provider account behind that user", async () => {
+      const cookie = await signIn()
+      const response = await app.request("/auth/me", { headers: { cookie } })
+
+      const body = (await response.json()) as {
+        account: { provider: string; providerId: string; scopes: string[] }
+      }
+
+      assert.equal(body.account.provider, "github")
+      assert.equal(body.account.providerId, "583231")
+      assert.deepEqual(body.account.scopes, ["read:user", "user:email"])
+    })
+
+    // The account holds the GitHub token. `toJSON` strips it, and this is the
+    // route that would otherwise hand it to anything running in the browser.
+    it("never leaks the tokens the account holds", async () => {
+      const cookie = await signIn()
+      const response = await app.request("/auth/me", { headers: { cookie } })
+      const body = await response.text()
+
+      assert.ok(!body.includes(TOKEN))
+      assert.ok(!body.includes("encryptedAccessToken"))
+      assert.ok(!body.includes("encryptedRefreshToken"))
+    })
+
+    it("refuses a request carrying no session cookie", async () => {
+      const response = await app.request("/auth/me")
+
+      assert.equal(response.status, 401)
+      assert.deepEqual(await response.json(), { error: "unauthorized" })
+    })
+
+    it("refuses a session id we never issued", async () => {
+      const response = await app.request("/auth/me", {
+        headers: { cookie: `verbatim_session=${"f".repeat(43)}` },
+      })
+
+      assert.equal(response.status, 401)
+    })
+
+    it("refuses a session that has ended", async () => {
+      const cookie = await signIn()
+
+      await sessions.deleteSession(cookie.slice("verbatim_session=".length))
+
+      const response = await app.request("/auth/me", { headers: { cookie } })
+
+      assert.equal(response.status, 401)
+    })
+
+    // Expiry is enforced by the query, not by Mongo's TTL index, which sweeps
+    // on its own schedule. Flushing Redis forces the read past the cache.
+    it("refuses a session that expired but has not been swept", async () => {
+      const cookie = await signIn()
+      const sid = cookie.slice("verbatim_session=".length)
+
+      await Session.updateOne({ sid }, { expiresAt: new Date(Date.now() - 1) })
+      await container.redis.flushall()
+
+      const response = await app.request("/auth/me", { headers: { cookie } })
+
+      assert.equal(response.status, 401)
     })
   })
 })

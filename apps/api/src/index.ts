@@ -11,10 +11,11 @@ import {
   redis,
   redisStatus,
 } from "./db/redis.js"
+import type { AuthEnv } from "./middleware/auth.js"
 import { createAuthRoutes } from "./routes/auth.js"
 import { createSessionStore } from "./services/session.js"
 
-const app = new Hono()
+const app = new Hono<AuthEnv>()
 
 app.use("*", logger())
 
@@ -36,7 +37,7 @@ app.get("/health", (c) =>
   })
 )
 
-// Built once and shared: `requireAuth` will want this same store. Holding the
+// Built once and shared by the controller and `requireAuth`. Holding the
 // client is all it does, and `lazyConnect` means the connection below is what
 // opens it, so building it before connecting is fine.
 const sessions = createSessionStore(redis)
