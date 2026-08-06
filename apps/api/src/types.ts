@@ -35,3 +35,15 @@ export interface TokenGrant {
   expiresAt: Date | null
   scopes: string[]
 }
+
+/**
+ * A session as the rest of the app sees it: plain, already revived from
+ * whichever store answered, so a caller never learns whether the read was a
+ * cache hit or a trip to Mongo.
+ */
+export interface Session {
+  sid: string
+  userId: string
+  createdAt: Date
+  expiresAt: Date
+}

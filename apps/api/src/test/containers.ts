@@ -79,7 +79,7 @@ export interface TestMongo {
 
 /**
  * Starts a disposable Mongo and connects the default mongoose instance to it,
- * which is the one `models/` registers against — so imported models simply
+ * which is the one `models/` registers against, so imported models simply
  * work, with no wiring at the call site.
  */
 export const startTestMongo = async (): Promise<TestMongo> => {
