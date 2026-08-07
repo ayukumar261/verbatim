@@ -449,4 +449,84 @@ describe("auth controller", () => {
       assert.equal(response.status, 401)
     })
   })
+
+  describe("DELETE /auth/session", () => {
+    const signOut = (cookie?: string) =>
+      app.request("/auth/session", {
+        method: "DELETE",
+        headers: cookie === undefined ? {} : { cookie },
+      })
+
+    it("ends the session, so the cookie stops answering", async () => {
+      const cookie = await signIn()
+      const response = await signOut(cookie)
+
+      assert.equal(response.status, 204)
+
+      const after = await app.request("/auth/me", { headers: { cookie } })
+
+      assert.equal(after.status, 401)
+    })
+
+    it("clears both stores, so nothing answers from cache", async () => {
+      const cookie = await signIn()
+      const sid = cookie.slice("verbatim_session=".length)
+
+      await signOut(cookie)
+
+      assert.equal(await container.redis.exists(`session:${sid}`), 0)
+      assert.equal(await Session.countDocuments({ sid }), 0)
+    })
+
+    it("empties the session cookie on the way out", async () => {
+      const cookie = await signIn()
+      const response = await signOut(cookie)
+
+      assert.equal(cookieValue(response, "verbatim_session"), "")
+    })
+
+    // Signing out of one device must not sign out the others, which is the
+    // whole reason the session id is what gets deleted rather than the user.
+    it("leaves this user's other sessions alone", async () => {
+      const laptop = await signIn()
+      const phone = await signIn()
+
+      await signOut(laptop)
+
+      const response = await app.request("/auth/me", {
+        headers: { cookie: phone },
+      })
+
+      assert.equal(response.status, 200)
+      assert.equal(await User.countDocuments(), 1)
+    })
+
+    it("succeeds when nobody was signed in", async () => {
+      const response = await signOut()
+
+      assert.equal(response.status, 204)
+    })
+
+    it("succeeds on a session id we never issued", async () => {
+      const response = await signOut(`verbatim_session=${"f".repeat(43)}`)
+
+      assert.equal(response.status, 204)
+    })
+
+    it("is safe to call twice", async () => {
+      const cookie = await signIn()
+
+      assert.equal((await signOut(cookie)).status, 204)
+      assert.equal((await signOut(cookie)).status, 204)
+    })
+
+    it("leaves the account and user in place", async () => {
+      const cookie = await signIn()
+
+      await signOut(cookie)
+
+      assert.equal(await User.countDocuments(), 1)
+      assert.equal(await Account.countDocuments(), 1)
+    })
+  })
 })

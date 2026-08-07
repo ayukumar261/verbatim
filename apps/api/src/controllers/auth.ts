@@ -12,7 +12,9 @@ import { User } from "../models/user.js"
 import { signInWithProvider } from "../services/auth.js"
 import type { SessionStore } from "../services/session.js"
 import {
+  clearSessionCookie,
   clearStateCookie,
+  readSessionCookie,
   readStateCookie,
   setSessionCookie,
   setStateCookie,
@@ -104,5 +106,25 @@ export const createAuthController = (sessions: SessionStore) => {
     return c.json({ user: user.toJSON(), account: account?.toJSON() ?? null })
   }
 
-  return { authorize, callback, me }
+  /**
+   * Ends this session and takes its cookie with it. Other devices stay signed
+   * in, since the session id is what gets deleted, not the user.
+   *
+   * Deliberately not behind `requireAuth`: signing out twice, or while already
+   * signed out, is not an error, and a 401 would refuse to clear the very
+   * cookie the caller is trying to be rid of.
+   */
+  const signOut = async (c: Context) => {
+    const sid = readSessionCookie(c)
+
+    if (sid !== null) {
+      await sessions.deleteSession(sid)
+    }
+
+    clearSessionCookie(c)
+
+    return c.body(null, 204)
+  }
+
+  return { authorize, callback, me, signOut }
 }

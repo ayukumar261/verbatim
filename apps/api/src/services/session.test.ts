@@ -190,35 +190,15 @@ describe("session store", () => {
 
       await assert.doesNotReject(sessions.deleteSession(sid))
     })
-  })
-
-  describe("deleteUserSessions", () => {
-    it("ends every session that user holds", async () => {
-      const held = await Promise.all([
-        sessions.createSession(USER_ID),
-        sessions.createSession(USER_ID),
-        sessions.createSession(USER_ID),
-      ])
-
-      await sessions.deleteUserSessions(USER_ID)
-
-      const survivors = await Promise.all(held.map(sessions.getSession))
-      assert.deepEqual(survivors, [null, null, null])
-      assert.equal(await SessionModel.countDocuments({ userId: USER_ID }), 0)
-    })
 
     it("leaves other users signed in", async () => {
       const mine = await sessions.createSession(USER_ID)
       const theirs = await sessions.createSession(OTHER_USER_ID)
 
-      await sessions.deleteUserSessions(USER_ID)
+      await sessions.deleteSession(mine)
 
       assert.equal(await sessions.getSession(mine), null)
       assert.ok(await sessions.getSession(theirs))
-    })
-
-    it("is safe for a user who has never signed in", async () => {
-      await assert.doesNotReject(sessions.deleteUserSessions(OTHER_USER_ID))
     })
   })
 })

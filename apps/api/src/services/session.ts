@@ -137,27 +137,12 @@ export const createSessionStore = (redis: Redis) => {
     await SessionModel.deleteOne({ sid })
   }
 
-  /**
-   * Ends every session this user has anywhere. For "log out all devices", and
-   * for the moment an account is banned, deleted, or loses its GitHub token.
-   */
-  const deleteUserSessions = async (userId: string): Promise<void> => {
-    const documents = await SessionModel.find({ userId }, { sid: 1 }).lean()
-
-    if (documents.length > 0) {
-      await redis.del(...documents.map((document) => cacheKey(document.sid)))
-    }
-
-    await SessionModel.deleteMany({ userId })
-  }
-
   return {
     createState,
     consumeState,
     createSession,
     getSession,
     deleteSession,
-    deleteUserSessions,
   }
 }
 

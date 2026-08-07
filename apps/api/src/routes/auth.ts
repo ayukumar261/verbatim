@@ -12,6 +12,7 @@ export const createAuthRoutes = (sessions: SessionStore) => {
   routes.get("/github", auth.authorize)
   routes.get("/github/callback", auth.callback)
   routes.get("/me", requireAuth(sessions), auth.me)
+  routes.delete("/session", auth.signOut)
 
   return routes
 }
