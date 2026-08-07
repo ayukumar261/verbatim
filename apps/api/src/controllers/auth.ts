@@ -21,11 +21,12 @@ import {
 } from "../utils/cookie.js"
 
 // A browser lands here, not a fetch client, so a failure ends as a redirect
-// carrying a short code rather than as a JSON error body.
+// carrying a short code rather than as a JSON error body. Failures go back to
+// the sign-in page, which is the only one that can explain them or retry.
 const landing = (error?: string): string =>
   error === undefined
     ? env.origin
-    : `${env.origin}/?error=${encodeURIComponent(error)}`
+    : `${env.origin}/connect?error=${encodeURIComponent(error)}`
 
 export const createAuthController = (sessions: SessionStore) => {
   /** Step one: hand the browser to GitHub, holding a `state` on both sides. */

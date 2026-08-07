@@ -238,7 +238,7 @@ describe("auth controller", () => {
 
       assert.equal(
         response.headers.get("location"),
-        `${ORIGIN}/?error=invalid_state`
+        `${ORIGIN}/connect?error=invalid_state`
       )
       assert.equal(cookieValue(response, "verbatim_session"), null)
       assert.equal(await User.countDocuments(), 0)
@@ -255,7 +255,7 @@ describe("auth controller", () => {
 
       assert.equal(
         response.headers.get("location"),
-        `${ORIGIN}/?error=invalid_state`
+        `${ORIGIN}/connect?error=invalid_state`
       )
       assert.equal(cookieValue(response, "verbatim_session"), null)
     })
@@ -273,7 +273,7 @@ describe("auth controller", () => {
 
       assert.equal(
         response.headers.get("location"),
-        `${ORIGIN}/?error=invalid_state`
+        `${ORIGIN}/connect?error=invalid_state`
       )
       assert.equal(cookieValue(response, "verbatim_session"), null)
     })
@@ -293,7 +293,7 @@ describe("auth controller", () => {
       assert.equal(first.headers.get("location"), ORIGIN)
       assert.equal(
         second.headers.get("location"),
-        `${ORIGIN}/?error=invalid_state`
+        `${ORIGIN}/connect?error=invalid_state`
       )
       // The replay must not have opened a second session or a second user.
       assert.equal(await User.countDocuments(), 1)
@@ -306,7 +306,7 @@ describe("auth controller", () => {
 
       assert.equal(
         response.headers.get("location"),
-        `${ORIGIN}/?error=access_denied`
+        `${ORIGIN}/connect?error=access_denied`
       )
     })
 
@@ -317,7 +317,7 @@ describe("auth controller", () => {
 
       assert.equal(
         response.headers.get("location"),
-        `${ORIGIN}/?error=access_denied`
+        `${ORIGIN}/connect?error=access_denied`
       )
     })
 
@@ -330,7 +330,7 @@ describe("auth controller", () => {
 
       assert.equal(
         response.headers.get("location"),
-        `${ORIGIN}/?error=invalid_request`
+        `${ORIGIN}/connect?error=invalid_request`
       )
     })
 
@@ -345,7 +345,7 @@ describe("auth controller", () => {
 
       assert.equal(
         response.headers.get("location"),
-        `${ORIGIN}/?error=provider_error`
+        `${ORIGIN}/connect?error=provider_error`
       )
       assert.equal(cookieValue(response, "verbatim_session"), null)
       assert.equal(await User.countDocuments(), 0)
@@ -362,7 +362,7 @@ describe("auth controller", () => {
 
       assert.equal(
         response.headers.get("location"),
-        `${ORIGIN}/?error=provider_error`
+        `${ORIGIN}/connect?error=provider_error`
       )
       assert.equal(await User.countDocuments(), 0)
     })

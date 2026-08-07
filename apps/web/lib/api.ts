@@ -124,6 +124,33 @@ class Api {
 // Export a singleton instance
 export const api = new Api()
 
+/** A response that was not ok. Carries the status so callers can branch on it. */
+class ApiError extends Error {
+  readonly status: number
+
+  constructor(message: string, status: number) {
+    super(message)
+    this.name = "ApiError"
+    this.status = status
+  }
+}
+
+/**
+ * SWR's global fetcher. The cache key is the endpoint, and anything that is
+ * not ok throws, which is the contract SWR expects.
+ */
+const fetcher = async <T>(endpoint: string): Promise<T> => {
+  const response = await api.get<T>(endpoint)
+
+  if (response.error !== undefined) {
+    throw new ApiError(response.error, response.status)
+  }
+
+  return response.data as T
+}
+
+export { ApiError, fetcher }
+
 // Export the class for custom instances if needed
 export { Api }
 
