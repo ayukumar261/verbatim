@@ -14,7 +14,8 @@ import type { RepositoryDocument } from "./repository.js"
 const build = (overrides: Record<string, unknown> = {}): RepositoryDocument =>
   new Repository({
     userId: new Types.ObjectId(),
-    githubId: 1296269,
+    provider: "github",
+    providerId: "1296269",
     owner: "octocat",
     name: "hello-world",
     defaultBranch: "main",
@@ -42,8 +43,8 @@ describe("Repository", () => {
     assert.equal(repository.disconnectedAt, null)
   })
 
-  it("keeps githubId a number, even when given a string", () => {
-    assert.equal(build({ githubId: "1296269" }).githubId, 1296269)
+  it("keeps providerId a string, even when given a number", () => {
+    assert.equal(build({ providerId: 1296269 }).providerId, "1296269")
   })
 
   it("trims the owner and name", async () => {
@@ -55,15 +56,19 @@ describe("Repository", () => {
     assert.equal(repository.name, "spoon-knife")
   })
 
-  it("treats userId and githubId as immutable", () => {
+  it("treats the identity fields as immutable", () => {
     const repository = build()
 
     // Mongoose only enforces `immutable` on a document it believes is saved.
     repository.isNew = false
 
-    repository.set({ userId: new Types.ObjectId(), githubId: 999 })
+    repository.set({
+      userId: new Types.ObjectId(),
+      provider: "github",
+      providerId: "999",
+    })
 
-    assert.equal(repository.githubId, 1296269)
+    assert.equal(repository.providerId, "1296269")
   })
 
   it("allows a rename, since owner and name are only a display cache", async () => {
@@ -83,7 +88,8 @@ describe("Repository", () => {
 describe("Repository rejects bad documents", () => {
   for (const field of [
     "userId",
-    "githubId",
+    "provider",
+    "providerId",
     "owner",
     "name",
     "defaultBranch",
@@ -97,7 +103,7 @@ describe("Repository rejects bad documents", () => {
     await rejectsOn("userId", { userId: "not-an-object-id" })
   })
 
-  it("rejects a githubId that is not a number", async () => {
-    await rejectsOn("githubId", { githubId: "octocat" })
+  it("rejects an unknown provider", async () => {
+    await rejectsOn("provider", { provider: "bitbucket" })
   })
 })

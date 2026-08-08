@@ -1,9 +1,12 @@
 import { Schema, model } from "mongoose"
 import type { HydratedDocumentFromSchema } from "mongoose"
 
+import { PROVIDERS } from "../types.js"
+
 /**
- * A GitHub repository someone connected to Verbatim. Conversations hang off
- * these, which is what makes the sidebar a filter rather than a search.
+ * A repository someone connected to Verbatim. Conversations hang off these,
+ * which is what makes the sidebar a filter rather than a search. Identity keys
+ * on `{ provider, providerId }`, the same way `Account` does.
  */
 const repositorySchema = new Schema(
   {
@@ -14,16 +17,28 @@ const repositorySchema = new Schema(
       immutable: true,
     },
 
-    /**
-     * GitHub's numeric id, which survives a rename or a transfer. Identity
-     * lives here so `owner` and `name` stay a display cache.
-     */
-    githubId: {
-      type: Number,
+    provider: {
+      type: String,
       required: true,
+      enum: PROVIDERS,
       immutable: true,
     },
 
+    /**
+     * The repository's id at the provider, as a string. Stable across renames
+     * and transfers, which is what lets `owner` and `name` be a display cache.
+     */
+    providerId: {
+      type: String,
+      required: true,
+      immutable: true,
+      trim: true,
+    },
+
+    /**
+     * Whoever the repository sits under, e.g. GitHub's `owner.login`. Display
+     * only, and refreshed, since repositories get renamed and transferred.
+     */
     owner: {
       type: String,
       required: true,
@@ -65,7 +80,10 @@ const repositorySchema = new Schema(
  * a duplicate key rather than writing twice. Also serves "list my
  * repositories", since `userId` leads the index.
  */
-repositorySchema.index({ userId: 1, githubId: 1 }, { unique: true })
+repositorySchema.index(
+  { userId: 1, provider: 1, providerId: 1 },
+  { unique: true }
+)
 
 export const Repository = model("Repository", repositorySchema)
 
