@@ -1,5 +1,11 @@
 import { env } from "../env.js"
-import type { ProviderProfile, TokenGrant } from "../types.js"
+import { ProviderError } from "../types.js"
+import type {
+  Provider,
+  ProviderProfile,
+  ProviderRepository,
+  TokenGrant,
+} from "../types.js"
 
 const AUTHORIZE_URL = "https://github.com/login/oauth/authorize"
 const TOKEN_URL = "https://github.com/login/oauth/access_token"
@@ -8,18 +14,14 @@ const API_URL = "https://api.github.com"
 /** GitHub rejects API requests that do not identify themselves. */
 const USER_AGENT = "verbatim-api"
 
+/** Which provider this client speaks for, stamped on what it returns. */
+const PROVIDER: Provider = "github"
+
 /**
  * Deliberately minimal. `repo` is requested later and incrementally, when a
  * user actually asks us to open a private repository.
  */
 export const SCOPES = ["read:user", "user:email"] as const
-
-export class GitHubError extends Error {
-  constructor(message: string, options?: { cause?: unknown }) {
-    super(message, options)
-    this.name = "GitHubError"
-  }
-}
 
 /**
  * The URL we send the browser to for consent. Note what is absent:
@@ -69,15 +71,21 @@ export const exchangeCodeForToken = async (
   })
 
   if (!response.ok) {
-    throw new GitHubError(`Token exchange failed: HTTP ${response.status}`)
+    throw new ProviderError(
+      PROVIDER,
+      `Token exchange failed: HTTP ${response.status}`,
+      { status: response.status }
+    )
   }
 
   const body = (await response.json()) as TokenResponse
 
   // GitHub reports OAuth failures as HTTP 200 with an `error` key, so the
-  // status check above is not enough on its own.
+  // status check above is not enough on its own. No status is carried here
+  // precisely because the 200 describes nothing.
   if (body.error || !body.access_token) {
-    throw new GitHubError(
+    throw new ProviderError(
+      PROVIDER,
       body.error_description ?? body.error ?? "No access token in response"
     )
   }
@@ -105,7 +113,11 @@ const apiGet = async <T>(path: string, accessToken: string): Promise<T> => {
   })
 
   if (!response.ok) {
-    throw new GitHubError(`GET ${path} failed: HTTP ${response.status}`)
+    throw new ProviderError(
+      PROVIDER,
+      `GET ${path} failed: HTTP ${response.status}`,
+      { status: response.status }
+    )
   }
 
   return (await response.json()) as T
@@ -152,11 +164,75 @@ export const fetchViewer = async (
     user.email ?? (await fetchPrimaryEmail(accessToken).catch(() => null))
 
   return {
-    provider: "github",
+    provider: PROVIDER,
     providerId: String(user.id),
     username: user.login,
     name: user.name,
     email,
     avatarUrl: user.avatar_url,
   }
+}
+
+interface GitHubRepository {
+  id: number
+  name: string
+  owner: { login: string }
+  default_branch: string
+  private: boolean
+  description: string | null
+  pushed_at: string | null
+}
+
+const toRepository = (repository: GitHubRepository): ProviderRepository => ({
+  provider: PROVIDER,
+  providerId: String(repository.id),
+  owner: repository.owner.login,
+  name: repository.name,
+  defaultBranch: repository.default_branch,
+  isPrivate: repository.private,
+  description: repository.description,
+  // Null on a repository with no commits, where `new Date(null)` would
+  // otherwise silently claim 1970.
+  pushedAt:
+    repository.pushed_at === null ? null : new Date(repository.pushed_at),
+})
+
+/**
+ * Repositories the user could connect, newest push first. One page: the picker
+ * has a search box, and paging a long tail costs a request per hundred repos.
+ *
+ * Visibility is deliberately not constrained, so the token decides. The day
+ * `repo` is granted, private repositories appear here with no change.
+ */
+export const listRepositories = async (
+  accessToken: string
+): Promise<ProviderRepository[]> => {
+  const params = new URLSearchParams({
+    affiliation: "owner",
+    sort: "pushed",
+    per_page: "100",
+  })
+
+  const repositories = await apiGet<GitHubRepository[]>(
+    `/user/repos?${params.toString()}`,
+    accessToken
+  )
+
+  return repositories.map(toRepository)
+}
+
+/**
+ * One repository by its provider id. This is how connecting proves access:
+ * the lookup runs on the user's own token, so a 404 means it is not theirs,
+ * and what comes back is what gets stored rather than anything a client sent.
+ */
+export const fetchRepository = async (
+  providerId: string,
+  accessToken: string
+): Promise<ProviderRepository> => {
+  // Encoded because this value reaches us in a request body, where a raw `..`
+  // would otherwise walk to a different endpoint.
+  const path = `/repositories/${encodeURIComponent(providerId)}`
+
+  return toRepository(await apiGet<GitHubRepository>(path, accessToken))
 }

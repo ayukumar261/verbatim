@@ -37,6 +37,23 @@ export interface TokenGrant {
 }
 
 /**
+ * A repository as we describe it. `description` and `pushedAt` are here for
+ * the picker and deliberately not persisted: both go stale on the next push,
+ * and the connected list reads from Mongo rather than from the provider.
+ */
+export interface ProviderRepository {
+  provider: Provider
+  providerId: string
+  owner: string
+  name: string
+  defaultBranch: string
+  isPrivate: boolean
+  description: string | null
+  /** Null for a repository that has never been pushed to. */
+  pushedAt: Date | null
+}
+
+/**
  * A session as the rest of the app sees it: plain, already revived from
  * whichever store answered, so a caller never learns whether the read was a
  * cache hit or a trip to Mongo.
@@ -46,4 +63,31 @@ export interface Session {
   userId: string
   createdAt: Date
   expiresAt: Date
+}
+
+/**
+ * A call to a provider failed. Named for the role rather than the provider, so
+ * a second one throws the same class and `provider` says which.
+ */
+export class ProviderError extends Error {
+  readonly provider: Provider
+
+  /**
+   * The HTTP status, as a field rather than only in the message, so a handler
+   * can tell "you cannot see this" from "the provider is down" without
+   * matching on text. Null when the failure was not an HTTP status, which is
+   * how GitHub reports OAuth errors.
+   */
+  readonly status: number | null
+
+  constructor(
+    provider: Provider,
+    message: string,
+    options?: { status?: number; cause?: unknown }
+  ) {
+    super(message, options)
+    this.name = "ProviderError"
+    this.provider = provider
+    this.status = options?.status ?? null
+  }
 }

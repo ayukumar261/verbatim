@@ -1,6 +1,9 @@
 import assert from "node:assert/strict"
 import { afterEach, describe, it } from "node:test"
 
+// Safe to import statically: `types.js` reads no environment.
+import { ProviderError } from "../types.js"
+
 /**
  * Deterministic credentials, assigned before the module reads them, so these
  * tests never depend on real ones in `.env`. The import must be dynamic: a
@@ -10,8 +13,13 @@ process.env.GITHUB_CLIENT_ID = "test-client-id"
 process.env.GITHUB_CLIENT_SECRET = "test-client-secret"
 process.env.GITHUB_CALLBACK_URL = "http://localhost:3001/auth/github/callback"
 
-const { GitHubError, buildAuthorizeUrl, exchangeCodeForToken, fetchViewer } =
-  await import("./github.js")
+const {
+  buildAuthorizeUrl,
+  exchangeCodeForToken,
+  fetchRepository,
+  fetchViewer,
+  listRepositories,
+} = await import("./github.js")
 
 const realFetch = globalThis.fetch
 
@@ -38,6 +46,16 @@ const VIEWER = {
   name: "The Octocat",
   email: "public@github.com",
   avatar_url: "https://avatars.githubusercontent.com/u/583231",
+}
+
+const REPO = {
+  id: 1296269,
+  name: "Hello-World",
+  owner: { login: "octocat" },
+  default_branch: "main",
+  private: false,
+  description: "My first repository on GitHub!",
+  pushed_at: "2011-01-26T19:06:43Z",
 }
 
 afterEach(() => {
@@ -163,8 +181,11 @@ describe("exchangeCodeForToken rejects failures", () => {
     )
 
     await assert.rejects(exchangeCodeForToken("stale"), (error: unknown) => {
-      assert.ok(error instanceof GitHubError)
+      assert.ok(error instanceof ProviderError)
       assert.match(error.message, /incorrect or expired/)
+      assert.equal(error.provider, "github")
+      // The 200 describes nothing, so nothing is claimed about the status.
+      assert.equal(error.status, null)
 
       return true
     })
@@ -278,5 +299,143 @@ describe("fetchViewer", () => {
     stubFetch(() => json({}, 401))
 
     await assert.rejects(fetchViewer("expired"), /HTTP 401/)
+  })
+})
+
+describe("listRepositories", () => {
+  it("maps GitHub's shape onto our own", async () => {
+    stubFetch(() => json([REPO]))
+
+    assert.deepEqual(await listRepositories("gho_abc"), [
+      {
+        provider: "github",
+        providerId: "1296269",
+        owner: "octocat",
+        name: "Hello-World",
+        defaultBranch: "main",
+        isPrivate: false,
+        description: "My first repository on GitHub!",
+        pushedAt: new Date("2011-01-26T19:06:43Z"),
+      },
+    ])
+  })
+
+  it("returns providerId as a string, not GitHub's number", async () => {
+    stubFetch(() => json([REPO]))
+
+    const [repository] = await listRepositories("gho_abc")
+
+    assert.equal(typeof repository?.providerId, "string")
+  })
+
+  it("asks for owned repositories, newest push first", async () => {
+    stubFetch(() => json([]))
+
+    await listRepositories("gho_abc")
+
+    const params = new URL(String(calls[0]?.url)).searchParams
+
+    assert.equal(params.get("affiliation"), "owner")
+    assert.equal(params.get("sort"), "pushed")
+    assert.equal(params.get("per_page"), "100")
+  })
+
+  it("never constrains visibility, so the token decides what comes back", async () => {
+    stubFetch(() => json([]))
+
+    await listRepositories("gho_abc")
+
+    // Hardcoding `public` would mean editing this call the day `repo` is
+    // granted, rather than private repositories simply appearing.
+    assert.equal(
+      new URL(String(calls[0]?.url)).searchParams.get("visibility"),
+      null
+    )
+  })
+
+  it("authenticates with the token as a bearer credential", async () => {
+    stubFetch(() => json([]))
+
+    await listRepositories("gho_abc")
+
+    assert.equal(
+      new Headers(calls[0]?.init?.headers).get("authorization"),
+      "Bearer gho_abc"
+    )
+  })
+
+  it("returns an empty list without complaint", async () => {
+    stubFetch(() => json([]))
+
+    assert.deepEqual(await listRepositories("gho_abc"), [])
+  })
+
+  it("leaves pushedAt null for a repository with no commits", async () => {
+    stubFetch(() => json([{ ...REPO, pushed_at: null }]))
+
+    const [repository] = await listRepositories("gho_abc")
+
+    // `new Date(null)` is 1970, which would sort an untouched repo oddly and
+    // read as a real date everywhere downstream.
+    assert.equal(repository?.pushedAt, null)
+  })
+
+  it("throws when the request fails", async () => {
+    stubFetch(() => json({}, 401))
+
+    await assert.rejects(listRepositories("expired"), /HTTP 401/)
+  })
+})
+
+describe("fetchRepository", () => {
+  it("looks the repository up by its provider id", async () => {
+    stubFetch(() => json(REPO))
+
+    await fetchRepository("1296269", "gho_abc")
+
+    assert.equal(calls[0]?.url, "https://api.github.com/repositories/1296269")
+  })
+
+  it("maps GitHub's shape onto our own", async () => {
+    stubFetch(() => json(REPO))
+
+    const repository = await fetchRepository("1296269", "gho_abc")
+
+    assert.equal(repository.providerId, "1296269")
+    assert.equal(repository.owner, "octocat")
+    assert.equal(repository.name, "Hello-World")
+    assert.equal(repository.defaultBranch, "main")
+  })
+
+  it("escapes the id, which arrives in a request body", async () => {
+    stubFetch(() => json(REPO))
+
+    await fetchRepository("../user", "gho_abc")
+
+    // Unescaped, this would walk out of /repositories and hit /user instead.
+    assert.ok(!String(calls[0]?.url).includes("/repositories/../user"))
+  })
+
+  it("carries the status, so a caller can tell 404 from 500", async () => {
+    stubFetch(() => json({}, 404))
+
+    await assert.rejects(fetchRepository("1", "gho_abc"), (error: unknown) => {
+      assert.ok(error instanceof ProviderError)
+      assert.equal(error.status, 404)
+      assert.equal(error.provider, "github")
+
+      return true
+    })
+  })
+
+  it("reports a dead token with its own status, not as a 404", async () => {
+    stubFetch(() => json({}, 401))
+
+    await assert.rejects(fetchRepository("1", "gho_abc"), (error: unknown) => {
+      assert.ok(error instanceof ProviderError)
+      assert.equal(error.status, 401)
+
+      return true
+    })
   })
 })
