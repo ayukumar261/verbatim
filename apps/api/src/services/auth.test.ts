@@ -7,7 +7,7 @@ import { User } from "../models/user.js"
 import { startTestMongo } from "../test/containers.js"
 import type { TestMongo } from "../test/containers.js"
 import type { ProviderProfile, TokenGrant } from "../types.js"
-import { signInWithProvider } from "./auth.js"
+import { getProviderToken, markRevoked, signInWithProvider } from "./auth.js"
 
 /** Shaped like a real GitHub access token, so the lengths are realistic. */
 const TOKEN = "gho_16C7e42F292c6912E7710c838347Ae178B4a"
@@ -37,25 +37,26 @@ const storedAccount = async (): Promise<AccountDocument> => {
   return account
 }
 
+let mongo: TestMongo
+
+// Hoisted above the suites so one container serves the whole file.
+before(async () => {
+  mongo = await startTestMongo()
+
+  // Builds the unique indexes up front. Without them the race below has
+  // nothing to collide against and would quietly create two accounts.
+  await Promise.all([Account.init(), User.init()])
+})
+
+after(async () => {
+  await mongo.stop()
+})
+
+beforeEach(async () => {
+  await mongo.clear()
+})
+
 describe("signInWithProvider", () => {
-  let mongo: TestMongo
-
-  before(async () => {
-    mongo = await startTestMongo()
-
-    // Builds the unique indexes up front. Without them the race below has
-    // nothing to collide against and would quietly create two accounts.
-    await Promise.all([Account.init(), User.init()])
-  })
-
-  after(async () => {
-    await mongo.stop()
-  })
-
-  beforeEach(async () => {
-    await mongo.clear()
-  })
-
   it("creates a user and an account the first time it sees an identity", async () => {
     const userId = await signInWithProvider(PROFILE, GRANT)
 
@@ -116,13 +117,13 @@ describe("signInWithProvider", () => {
     assert.deepEqual(account.scopes, ["read:user", "user:email", "repo"])
   })
 
-  it("clears needsReauth, since the grant is fresh", async () => {
+  it("clears isRevoked, since the grant is fresh", async () => {
     await signInWithProvider(PROFILE, GRANT)
-    await Account.updateOne({}, { needsReauth: true })
+    await Account.updateOne({}, { isRevoked: true })
 
     await signInWithProvider(PROFILE, GRANT)
 
-    assert.equal((await storedAccount()).needsReauth, false)
+    assert.equal((await storedAccount()).isRevoked, false)
   })
 
   it("follows a rename at the provider", async () => {
@@ -165,5 +166,66 @@ describe("signInWithProvider", () => {
     assert.equal(first, second)
     assert.equal(await User.countDocuments(), 1)
     assert.equal(await Account.countDocuments(), 1)
+  })
+})
+
+describe("getProviderToken", () => {
+  it("returns the decrypted access token", async () => {
+    const userId = await signInWithProvider(PROFILE, GRANT)
+
+    assert.equal(await getProviderToken(userId, "github"), TOKEN)
+  })
+
+  it("returns null when the user has no account with that provider", async () => {
+    const user = await User.create({})
+
+    assert.equal(await getProviderToken(user._id.toString(), "github"), null)
+  })
+
+  it("returns null once the credentials are revoked", async () => {
+    const userId = await signInWithProvider(PROFILE, GRANT)
+
+    await markRevoked(userId, "github")
+
+    // The token is still stored and still decryptable. Refusing to hand it
+    // out is the point: the caller should reconnect rather than retry.
+    assert.equal(await getProviderToken(userId, "github"), null)
+    assert.equal((await storedAccount()).getAccessToken(), TOKEN)
+  })
+})
+
+describe("markRevoked", () => {
+  it("flags the account", async () => {
+    const userId = await signInWithProvider(PROFILE, GRANT)
+
+    await markRevoked(userId, "github")
+
+    assert.equal((await storedAccount()).isRevoked, true)
+  })
+
+  it("is undone by the next successful sign-in", async () => {
+    const userId = await signInWithProvider(PROFILE, GRANT)
+
+    await markRevoked(userId, "github")
+    await signInWithProvider(PROFILE, GRANT)
+
+    assert.equal((await storedAccount()).isRevoked, false)
+  })
+
+  it("flags only the account it was given", async () => {
+    const first = await signInWithProvider(PROFILE, GRANT)
+    await signInWithProvider({ ...PROFILE, providerId: "999999" }, GRANT)
+
+    await markRevoked(first, "github")
+
+    assert.equal(await Account.countDocuments({ isRevoked: true }), 1)
+  })
+
+  it("does nothing when there is no such account", async () => {
+    const user = await User.create({})
+
+    // A 401 can arrive for an account deleted mid-flight, and that should not
+    // become a second failure on top of the first.
+    await assert.doesNotReject(markRevoked(user._id.toString(), "github"))
   })
 })

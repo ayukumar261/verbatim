@@ -22,7 +22,7 @@ interface Account {
   providerId: string
   username: string | null
   scopes: string[]
-  needsReauth: boolean
+  isRevoked: boolean
 }
 
 interface Me {

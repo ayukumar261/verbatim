@@ -49,7 +49,7 @@ describe("Account", () => {
     assert.equal(account.encryptedRefreshToken, null)
     assert.equal(account.expiresAt, null)
     assert.deepEqual(account.scopes, [])
-    assert.equal(account.needsReauth, false)
+    assert.equal(account.isRevoked, false)
   })
 
   it("treats username as optional, since not every provider has one", async () => {
@@ -77,12 +77,12 @@ describe("Account token storage", () => {
     assert.ok(!account.encryptedAccessToken.includes(TOKEN))
   })
 
-  it("clears needsReauth when a fresh token is stored", () => {
-    const account = build({ needsReauth: true })
+  it("clears isRevoked when a fresh token is stored", () => {
+    const account = build({ isRevoked: true })
 
     account.setAccessToken(TOKEN)
 
-    assert.equal(account.needsReauth, false)
+    assert.equal(account.isRevoked, false)
   })
 
   it("round-trips a refresh token", () => {

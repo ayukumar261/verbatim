@@ -83,7 +83,7 @@ const accountSchema = new Schema(
      * our access on GitHub. Signals the frontend to send them back through
      * the OAuth flow instead of showing them repeated failures.
      */
-    needsReauth: {
+    isRevoked: {
       type: Boolean,
       default: false,
     },
@@ -97,10 +97,10 @@ const accountSchema = new Schema(
         return decrypt(this.encryptedAccessToken)
       },
 
-      /** Encrypts and stores a token. Also clears any prior `needsReauth`. */
+      /** Encrypts and stores a token. Also clears any prior `isRevoked`. */
       setAccessToken(token: string): void {
         this.encryptedAccessToken = encrypt(token)
-        this.needsReauth = false
+        this.isRevoked = false
       },
 
       getRefreshToken(): string | null {
