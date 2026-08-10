@@ -13,6 +13,7 @@ import {
 } from "./db/redis.js"
 import type { AuthEnv } from "./middleware/auth.js"
 import { createAuthRoutes } from "./routes/auth.js"
+import { createRepositoryRoutes } from "./routes/repository.js"
 import { createSessionStore } from "./services/session.js"
 
 const app = new Hono<AuthEnv>()
@@ -43,6 +44,7 @@ app.get("/health", (c) =>
 const sessions = createSessionStore(redis)
 
 app.route("/auth", createAuthRoutes(sessions))
+app.route("/repositories", createRepositoryRoutes(sessions))
 
 await Promise.all([connectMongo(), connectRedis()])
 
