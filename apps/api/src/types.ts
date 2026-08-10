@@ -53,6 +53,15 @@ export interface ProviderRepository {
 }
 
 /**
+ * A repository as the picker sees it: what the provider said, plus whether
+ * this user already connected it. The flag is computed per request rather than
+ * stored, since it changes the moment someone connects.
+ */
+export interface AvailableRepository extends ProviderRepository {
+  isConnected: boolean
+}
+
+/**
  * A session as the rest of the app sees it: plain, already revived from
  * whichever store answered, so a caller never learns whether the read was a
  * cache hit or a trip to Mongo.
