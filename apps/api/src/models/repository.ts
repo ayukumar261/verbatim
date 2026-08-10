@@ -57,12 +57,6 @@ const repositorySchema = new Schema(
       required: true,
     },
 
-    /** Always false while scopes stay minimal, but the picker badges it. */
-    isPrivate: {
-      type: Boolean,
-      default: false,
-    },
-
     /**
      * Set instead of deleting, so disconnecting a repository leaves its
      * conversations readable rather than destroying them.

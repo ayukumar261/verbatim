@@ -178,7 +178,6 @@ interface GitHubRepository {
   name: string
   owner: { login: string }
   default_branch: string
-  private: boolean
   description: string | null
   pushed_at: string | null
 }
@@ -189,7 +188,6 @@ const toRepository = (repository: GitHubRepository): ProviderRepository => ({
   owner: repository.owner.login,
   name: repository.name,
   defaultBranch: repository.default_branch,
-  isPrivate: repository.private,
   description: repository.description,
   // Null on a repository with no commits, where `new Date(null)` would
   // otherwise silently claim 1970.

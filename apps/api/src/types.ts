@@ -47,7 +47,6 @@ export interface ProviderRepository {
   owner: string
   name: string
   defaultBranch: string
-  isPrivate: boolean
   description: string | null
   /** Null for a repository that has never been pushed to. */
   pushedAt: Date | null

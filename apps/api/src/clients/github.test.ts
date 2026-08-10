@@ -53,7 +53,6 @@ const REPO = {
   name: "Hello-World",
   owner: { login: "octocat" },
   default_branch: "main",
-  private: false,
   description: "My first repository on GitHub!",
   pushed_at: "2011-01-26T19:06:43Z",
 }
@@ -313,7 +312,6 @@ describe("listRepositories", () => {
         owner: "octocat",
         name: "Hello-World",
         defaultBranch: "main",
-        isPrivate: false,
         description: "My first repository on GitHub!",
         pushedAt: new Date("2011-01-26T19:06:43Z"),
       },

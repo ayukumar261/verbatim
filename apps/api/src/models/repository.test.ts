@@ -37,10 +37,7 @@ describe("Repository", () => {
   })
 
   it("applies sensible defaults", () => {
-    const repository = build()
-
-    assert.equal(repository.isPrivate, false)
-    assert.equal(repository.disconnectedAt, null)
+    assert.equal(build().disconnectedAt, null)
   })
 
   it("keeps providerId a string, even when given a number", () => {
