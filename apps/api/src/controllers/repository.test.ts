@@ -249,7 +249,7 @@ describe("repository controller", () => {
       const response = await list()
 
       assert.equal(response.status, 401)
-      assert.deepEqual(await response.json(), { error: "unauthorized" })
+      assert.deepEqual(await response.json(), { error: { code: "unauthorized" } })
     })
 
     it("is empty before anything is connected", async () => {
@@ -391,7 +391,7 @@ describe("repository controller", () => {
       const response = await available(cookie)
 
       assert.equal(response.status, 401)
-      assert.deepEqual(await response.json(), { error: "reauth_required" })
+      assert.deepEqual(await response.json(), { error: { code: "provider_unauthorized" } })
     })
 
     // A 401 from the provider is the token dying, which is almost always the
@@ -404,7 +404,7 @@ describe("repository controller", () => {
       const response = await available(cookie)
 
       assert.equal(response.status, 401)
-      assert.deepEqual(await response.json(), { error: "reauth_required" })
+      assert.deepEqual(await response.json(), { error: { code: "provider_unauthorized" } })
       assert.equal((await Account.findOne({}))?.isRevoked, true)
     })
 
@@ -418,7 +418,7 @@ describe("repository controller", () => {
       const response = await available(cookie)
 
       assert.equal(response.status, 502)
-      assert.deepEqual(await response.json(), { error: "provider_error" })
+      assert.deepEqual(await response.json(), { error: { code: "provider_error" } })
       assert.equal((await Account.findOne({}))?.isRevoked, false)
     })
   })
@@ -476,7 +476,7 @@ describe("repository controller", () => {
       const response = await post(JSON.stringify({}), cookie)
 
       assert.equal(response.status, 400)
-      assert.deepEqual(await response.json(), { error: "invalid_request" })
+      assert.deepEqual(await response.json(), { error: { code: "invalid_request" } })
     })
 
     it("rejects a providerId that is blank or the wrong type", async () => {
@@ -496,7 +496,7 @@ describe("repository controller", () => {
       const response = await post("not json", cookie)
 
       assert.equal(response.status, 400)
-      assert.deepEqual(await response.json(), { error: "invalid_request" })
+      assert.deepEqual(await response.json(), { error: { code: "invalid_request" } })
     })
 
     it("answers 404 for a repository the provider will not show", async () => {
@@ -504,7 +504,7 @@ describe("repository controller", () => {
       const response = await connect("999999", cookie)
 
       assert.equal(response.status, 404)
-      assert.deepEqual(await response.json(), { error: "not_found" })
+      assert.deepEqual(await response.json(), { error: { code: "not_found" } })
       assert.equal(await Repository.countDocuments(), 0)
     })
 
@@ -516,7 +516,7 @@ describe("repository controller", () => {
       const response = await connect("1296269", cookie)
 
       assert.equal(response.status, 401)
-      assert.deepEqual(await response.json(), { error: "reauth_required" })
+      assert.deepEqual(await response.json(), { error: { code: "provider_unauthorized" } })
     })
 
     it("is safe to call twice", async () => {
@@ -608,7 +608,7 @@ describe("repository controller", () => {
       const second = await disconnect(id, cookie)
 
       assert.equal(second.status, 404)
-      assert.deepEqual(await second.json(), { error: "not_found" })
+      assert.deepEqual(await second.json(), { error: { code: "not_found" } })
     })
 
     it("answers 404 for an id nobody has", async () => {

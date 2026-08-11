@@ -30,7 +30,7 @@ export const requireAuth = (
     // No cookie, an unknown id, and an expired session are one answer: this
     // request is not signed in. Saying which would only help someone guessing.
     if (session === null) {
-      return c.json({ error: "unauthorized" }, 401)
+      return c.json({ error: { code: "unauthorized" } }, 401)
     }
 
     c.set("userId", session.userId)

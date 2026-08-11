@@ -20,22 +20,22 @@ const providerFailure = (c: Context, error: unknown) => {
     // `requireAuth`'s, so the app can send the user back through OAuth rather
     // than show a login wall for a session that still works.
     if (error.status === 401) {
-      return c.json({ error: "reauth_required" }, 401)
+      return c.json({ error: { code: "provider_unauthorized" } }, 401)
     }
 
     if (error.status === 404) {
-      return c.json({ error: "not_found" }, 404)
+      return c.json({ error: { code: "not_found" } }, 404)
     }
 
     // Down, rate limited, or a failure carrying no status at all. Upstream's
     // fault rather than the caller's, which is what 502 says.
-    return c.json({ error: "provider_error" }, 502)
+    return c.json({ error: { code: "provider_error" } }, 502)
   }
 
   // Why it broke belongs in our logs, not in a body the browser reads.
   console.error("provider call failed:", error)
 
-  return c.json({ error: "server_error" }, 500)
+  return c.json({ error: { code: "server_error" } }, 500)
 }
 
 /**
@@ -79,7 +79,7 @@ export const connect = async (c: Context<AuthEnv>) => {
   // Without this an absent field reaches the provider as `undefined` and comes
   // back as a 404, which reads as "no such repository" rather than "bad call".
   if (providerId === "") {
-    return c.json({ error: "invalid_request" }, 400)
+    return c.json({ error: { code: "invalid_request" } }, 400)
   }
 
   try {
@@ -103,7 +103,7 @@ export const disconnect = async (c: Context<AuthEnv, "/:id">) => {
   // One answer for "not yours", "never existed", "malformed", and "already
   // disconnected". Separating them would confirm that a stranger's id exists.
   if (!disconnected) {
-    return c.json({ error: "not_found" }, 404)
+    return c.json({ error: { code: "not_found" } }, 404)
   }
 
   return c.body(null, 204)

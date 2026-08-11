@@ -414,7 +414,7 @@ describe("auth controller", () => {
       const response = await app.request("/auth/me")
 
       assert.equal(response.status, 401)
-      assert.deepEqual(await response.json(), { error: "unauthorized" })
+      assert.deepEqual(await response.json(), { error: { code: "unauthorized" } })
     })
 
     it("refuses a session id we never issued", async () => {

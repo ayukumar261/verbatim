@@ -99,7 +99,7 @@ export const createAuthController = (sessions: SessionStore) => {
     // A live session pointing at a deleted user. Nobody left to describe, so
     // it is the same answer as never having signed in.
     if (user === null) {
-      return c.json({ error: "unauthorized" }, 401)
+      return c.json({ error: { code: "unauthorized" } }, 401)
     }
 
     // Serialising the account runs its `toJSON`, which drops the encrypted

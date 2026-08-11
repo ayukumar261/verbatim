@@ -50,9 +50,9 @@ class Api {
       if (!response.ok) {
         return {
           error:
-            data?.message ||
-            data?.error ||
-            `HTTP ${response.status}: ${response.statusText}`,
+            typeof data?.error?.code === "string"
+              ? data.error.code
+              : "unexpected_response",
           status: response.status,
         }
       }
@@ -61,10 +61,9 @@ class Api {
         data,
         status: response.status,
       }
-    } catch (error) {
+    } catch {
       return {
-        error:
-          error instanceof Error ? error.message : "Network error occurred",
+        error: "network_error",
         status: 0,
       }
     }
@@ -124,14 +123,16 @@ class Api {
 // Export a singleton instance
 export const api = new Api()
 
-/** A response that was not ok. Carries the status so callers can branch on it. */
 class ApiError extends Error {
   readonly status: number
 
-  constructor(message: string, status: number) {
-    super(message)
+  readonly code: string
+
+  constructor(code: string, status: number) {
+    super(code)
     this.name = "ApiError"
     this.status = status
+    this.code = code
   }
 }
 

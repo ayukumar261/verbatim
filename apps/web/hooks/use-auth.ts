@@ -37,9 +37,10 @@ interface Me {
 function useAuth() {
   const { data, error, isLoading, mutate } = useSWR<Me, Error>("/auth/me")
 
-  // 401 is the answer, not a failure: it means nobody is signed in. Anything
-  // else really is broken, and stays in `error` for the UI to say so.
-  const signedOut = error instanceof ApiError && error.status === 401
+  // Only this code means the session is gone. A 401 can also mean the session
+  // is fine and just the GitHub token died, which this must not catch.
+  const isUnauthorized =
+    error instanceof ApiError && error.code === "unauthorized"
 
   // A full navigation, not a fetch: the browser has to actually land on
   // GitHub's consent screen, and a redirect cannot do that from inside XHR.
@@ -55,14 +56,19 @@ function useAuth() {
     await mutate(undefined, { revalidate: false })
   }
 
-  return {
-    user: signedOut ? null : (data?.user ?? null),
-    account: signedOut ? null : (data?.account ?? null),
-    isLoading,
-    error: signedOut ? undefined : error,
-    signIn,
-    signOut,
+  // Signed out is one answer, not three: nobody, no account, and no error.
+  let session
+  if (isUnauthorized) {
+    session = { user: null, account: null, error: undefined }
+  } else {
+    session = {
+      user: data?.user ?? null,
+      account: data?.account ?? null,
+      error,
+    }
   }
+
+  return { ...session, isLoading, signIn, signOut }
 }
 
 export { useAuth }
