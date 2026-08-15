@@ -68,7 +68,7 @@ function useAuth() {
     }
   }
 
-  return { ...session, isLoading, signIn, signOut }
+  return { ...session, isLoading, refresh: mutate, signIn, signOut }
 }
 
 export { useAuth }
